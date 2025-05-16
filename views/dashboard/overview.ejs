@@ -1,0 +1,136 @@
+<div class="overview-container">
+    <section class="overview-section">
+        <div class="overview-content">
+            <h1>Overview</h1>
+            <form id="overviewForm">
+                <div class="overview-form-group">
+                    <label for="title">Title</label>
+                    <input required maxlength="50" type="text" id="title" name="title" placeholder="Enter your website title"
+                        value="<%= domainData.title || '' %>">
+                </div>
+
+                <div class="overview-form-group">
+                    <label for="description">Description</label>
+                    <input required maxlength="100" type="text" id="description" name="description"
+                        placeholder="Enter your website description" value="<%= domainData.description || '' %>">
+                </div>
+
+                <div class="overview-form-group">
+                    <div class="theme-options">
+                        <div class="theme-option <%= domainData.theme === 'light' ? 'active' : '' %>"
+                            data-theme="light" id="light">
+                            Light
+                        </div>
+                        <div class="theme-option <%= domainData.theme === 'dark' ? 'active' : '' %>" data-theme="dark" id="dark">
+                            Dark
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" id="saveChanges" class="overview-save-button" style="display: none;">
+                    Save Changes
+                </button>
+            </form>
+        </div>
+    </section>
+    <section class="preview-section">
+        <div class="preview-content">
+            <iframe id="previewFrame" src="/<%= userSubdomain %>?preview=true" title="Website Preview"></iframe>
+        </div>
+    </section>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('overviewForm');
+        const previewFrame = document.getElementById('previewFrame');
+        const saveButton = document.getElementById('saveChanges');
+        let selectedTheme = '<%= domainData.theme || "light" %>';
+        let hasUnsavedChanges = false;
+
+        // Store initial values
+        const initialValues = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            theme: selectedTheme
+        };
+
+        // Function to check if there are unsaved changes
+        function checkUnsavedChanges() {
+            const currentValues = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                theme: selectedTheme
+            };
+
+            hasUnsavedChanges =
+                currentValues.title !== initialValues.title ||
+                currentValues.description !== initialValues.description ||
+                currentValues.theme !== initialValues.theme;
+
+            saveButton.style.display = hasUnsavedChanges ? 'block' : 'none';
+        }
+
+        // Function to update preview
+        function updatePreview() {
+            const formData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                theme: selectedTheme
+            };
+
+            const frameWindow = previewFrame.contentWindow;
+            frameWindow.postMessage({
+                type: 'updatePreview',
+                data: formData
+            }, '*');
+
+            checkUnsavedChanges();
+        }
+
+        // Listen for input changes
+        form.addEventListener('input', updatePreview);
+
+        // Save changes handler
+        saveButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/save-changes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: document.getElementById('title').value,
+                        description: document.getElementById('description').value,
+                        theme: selectedTheme
+                    })
+                });
+
+                if (response.ok) {
+                    // Update initial values after successful save
+                    initialValues.title = document.getElementById('title').value;
+                    initialValues.description = document.getElementById('description').value;
+                    initialValues.theme = selectedTheme;
+                    hasUnsavedChanges = false;
+                    saveButton.style.display = 'none';
+                } else {
+                    throw new Error('Failed to save changes');
+                }
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                alert('Failed to save changes. Please try again.');
+            }
+        });
+
+        // Theme selection
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                document.querySelectorAll('.theme-option').forEach(opt =>
+                    opt.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                selectedTheme = e.currentTarget.dataset.theme;
+                updatePreview();
+            });
+        });
+    });
+</script>
